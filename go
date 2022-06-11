@@ -79,36 +79,34 @@ if [ -z "$DiskEFIPath" -o -z "$DiskLVMPath" ]; then
         DiskLVMPath="${DiskPath}2"
     fi
 fi
-fdisk -l
-echo "Writing to $DiskPath disk."
-echo "DiskEFIPath: $DiskEFIPath"
-echo "DiskLVMPath: $DiskLVMPath"
-echo -n 'Continue? [y/N]: '
-read pause
-if [ "$pause" != "y" ]; then
-    echo 'Exiting.' >&2
-    exit 1
-fi
-
+echo '[*] Setting keymap'
 setup-keymap fr fr-latin9
+echo '[*] Setting hostname'
 setup-hostname -n "${_HOSTNAME_}"
 /etc/init.d/hostname --quiet restart
+echo '[*] Setting DNS'
 setup-dns -d "${_DOMAIN_}" -n 9.9.9.9 -n 1.1.1.1
 echo 'nameserver 2620:fe::fe' >> /etc/resolv.conf
 echo 'nameserver 2606:4700:4700::1111' >> /etc/resolv.conf
 #echo "iface ${_IFACE_} inet6 auto" >> /etc/network/interfaces
+echo '[*] Setting timezone'
 apk add tzdata tzdata-doc
 setup-timezone -z Europe/Paris
+echo '[*] Setting proxy'
 setup-proxy "${_PROXY_}"
 #rc-update add networking boot
 #rc-update add urandom boot
 #rc-update add acpid default
 #rc-service acpid start
+echo '[*] Setting APK repository'
 echo "${_APKREP_}" | setup-apkrepos > /dev/null
 sed -i 's/^#http/http/' /etc/apk/repositories # Use all the (edge) repositories
 apk update
-echo 'no' | setup-sshd -c openssh # Disallow root login in opensshd
+echo '[*] Setting OpenSSHd'
+echo 'no' | setup-sshd -c openssh > /dev/null # Disallow root login in OpenSSHd
+echo '[*] Setting NTP'
 setup-ntp -c busybox
+echo '[*] apk upgrade & install basics'
 apk upgrade
 apk add iptables ip6tables iptables-doc haveged grub grub-efi efibootmgr doas doas-sudo-shim vim bash lvm2 cryptsetup e2fsprogs dosfstools coreutils util-linux os-prober
 if [ $? -ne 0 ]; then
@@ -116,6 +114,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 apk del syslinux # Make 100% sure to use grub EFI bootloader instead of syslinux
+echo '[*] Setting ip[6]tables'
 # IPTables: Start ip[6]tables along with the OS
 rc-update add iptables
 rc-update add ip6tables
@@ -134,13 +133,16 @@ ip6tables -A OUTPUT -p icmpv6 -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j 
 ip6tables -A INPUT  -p icmpv6 -j ACCEPT
 ip6tables -P INPUT DROP
 /etc/init.d/ip6tables save
-
 echo
 fdisk -l "$DiskPath"
 lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT "$DiskPath"
+echo "[*] DiskEFIPath -> $DiskEFIPath"
+echo "[*] DiskLVMPath -> $DiskLVMPath"
 echo "WARNING: DISK $DiskPath WILL BE FULLY ERASED. PRESS ENTER TO CONTINUE."
 read pause
+echo '[*] Wiping the disk...'
 wipefs -a -f "$DiskPath"
+echo '[*] Creating partitions'
 # Create two partitions: 50M partition for /boot/efi and the rest for a LGVM
 fdisk "$DiskPath" << __EOF__
 g
@@ -156,15 +158,17 @@ n
 
 w
 __EOF__
-
+echo '[*] Formatting partitions'
 # Prepare (format) the partitions
 mkfs.fat -F32 -n EFI "$DiskEFIPath"
 #haveged -n 0 | dd of="$DiskLVMPath" # Optional: Overwrite LUKS Partition with Random Data
 mkdir -m0700 /run/cryptsetup
 #cryptsetup -q -v -c serpent-xts-plain64 -s 512 --hash whirlpool --iter-time 5000 --use-random luksFormat "$DiskLVMPath"
-# Forced to use LUKS 1 for GRUB2
+# TODO: Forced to use LUKS 1 for GRUB2?
+echo '[*] Setting cryptsetup'
 cryptsetup -q -v --type luks1 luksFormat "$DiskLVMPath"
 cryptsetup luksOpen "$DiskLVMPath" lvmcrypt
+echo '[*] Setting LVM'
 rc-update add lvm # Start LVM during boot
 pvcreate /dev/mapper/lvmcrypt
 vgcreate vg0 /dev/mapper/lvmcrypt
@@ -178,9 +182,12 @@ vgchange -ay
 mount -t ext4 /dev/vg0/root /mnt/
 mkdir -p /mnt/boot/efi; mount -t vfat "$DiskEFIPath" /mnt/boot/efi
 mkdir -p /mnt/home; mount -t ext4 /dev/vg0/home /mnt/home
+echo "erf?"; read erf
 
+echo '[*] Installing Alpine'
 # Install Alpine
 setup-disk -s 0 -m sys /mnt
+echo "erf?"; read erf
 
 echo "lvmcrypt UUID=$(blkid -s UUID -o value ${DiskLVMPath}) none luks" > /mnt/etc/crypttab
 echo 'GRUB_DISABLE_OS_PROBER=false
@@ -273,8 +280,7 @@ fi
 dd bs=512 count=4 if=/dev/urandom of=/mnt/crypto_keyfile.bin iflag=fullblock
 chmod 000 /mnt/crypto_keyfile.bin
 cryptsetup luksAddKey "$DiskLVMPath" /mnt/crypto_keyfile.bin
-echo "erf?"
-read erf
+echo "erf?"; read erf
 echo '#!/bin/bash
 _USERNAME_='"'${_USERNAME_}'" > /mnt/root/install.sh
 cat << '__EOF__' >> /mnt/root/install.sh
@@ -356,6 +362,7 @@ rm -f /root/install.sh
 __EOF__
 chmod +x /mnt/root/install.sh
 
+echo '[*] Chrooting'
 # Chroot into the system to execute the previous/install script
 mount -t proc /proc /mnt/proc
 mount --rbind /dev /mnt/dev
