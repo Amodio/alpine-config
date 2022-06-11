@@ -34,7 +34,7 @@ _HOSTNAME_='alpi'
 _DOMAIN_='lan' 		# If left empty, will be prompted at setup-disk
 _PROXY_='none' 		# If left empty, will be prompted at setup-disk
 _APKREP_='f'   		# Use the fastest repository
-_APKREP_='31'  		# Comment this line.
+_APKREP_='28'  		# Comment this line. (should be mirrors.ircam.fr)
 
 _USERNAME_='da'     # Comment this line.
 _DOMAIN_='boscq.fr' # Comment this line.
@@ -85,7 +85,7 @@ echo "DiskEFIPath: $DiskEFIPath"
 echo "DiskLVMPath: $DiskLVMPath"
 echo -n 'Continue? [y/N]: '
 read pause
-if [ "$pause" -ne "y" ]; then
+if [ "$pause" != "y" ]; then
     echo 'Exiting.' >&2
     exit 1
 fi
@@ -97,16 +97,17 @@ setup-dns -d "${_DOMAIN_}" -n 9.9.9.9 -n 1.1.1.1
 echo 'nameserver 2620:fe::fe' >> /etc/resolv.conf
 echo 'nameserver 2606:4700:4700::1111' >> /etc/resolv.conf
 #echo "iface ${_IFACE_} inet6 auto" >> /etc/network/interfaces
+apk add tzdata tzdata-doc
 setup-timezone -z Europe/Paris
 setup-proxy "${_PROXY_}"
-rc-update add networking boot
-rc-update add urandom boot
-rc-update add acpid default
-rc-service acpid start
+#rc-update add networking boot
+#rc-update add urandom boot
+#rc-update add acpid default
+#rc-service acpid start
 echo "${_APKREP_}" | setup-apkrepos > /dev/null
 sed -i 's/^#http/http/' /etc/apk/repositories # Use all the (edge) repositories
 apk update
-setup-sshd -c openssh
+echo 'no' | setup-sshd -c openssh # Disallow root login in opensshd
 setup-ntp -c busybox
 apk upgrade
 apk add iptables ip6tables iptables-doc haveged grub grub-efi efibootmgr doas doas-sudo-shim vim bash lvm2 cryptsetup e2fsprogs dosfstools coreutils util-linux os-prober
