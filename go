@@ -3,7 +3,7 @@
 # setup-keymap fr fr
 # setup-interfaces
 # service networking start
-# wget boscq.fr/go
+# wget https://github.com/Amodio/alpine-config/raw/main/go
 # vi go            # Optional: if you wanna change the user cfg, see below.
 # sh go
 
@@ -101,11 +101,12 @@ setup-proxy "${_PROXY_}"
 echo '[*] Setting APK repository'
 echo "${_APKREP_}" | setup-apkrepos > /dev/null
 sed -i 's/^#http/http/' /etc/apk/repositories # Use all the (edge) repositories
+echo '[*] Updating packages'
 apk update
 echo '[*] Setting OpenSSHd'
 echo 'no' | setup-sshd -c openssh > /dev/null # Disallow root login in OpenSSHd
 echo '[*] Setting NTP'
-setup-ntp -c busybox
+setup-ntp busybox
 echo '[*] apk upgrade & install basics'
 apk upgrade
 apk add iptables ip6tables iptables-doc haveged grub grub-efi efibootmgr doas doas-sudo-shim vim bash lvm2 cryptsetup e2fsprogs dosfstools coreutils util-linux os-prober
@@ -140,8 +141,8 @@ echo "[*] DiskEFIPath -> $DiskEFIPath"
 echo "[*] DiskLVMPath -> $DiskLVMPath"
 echo "WARNING: DISK $DiskPath WILL BE FULLY ERASED. PRESS ENTER TO CONTINUE."
 read pause
-echo '[*] Wiping the disk...'
-wipefs -a -f "$DiskPath"
+#echo '[*] Wiping the disk...'
+#wipefs -a -f "$DiskPath"
 echo '[*] Creating partitions'
 # Create two partitions: 50M partition for /boot/efi and the rest for a LGVM
 fdisk "$DiskPath" << __EOF__
@@ -172,7 +173,7 @@ echo '[*] Setting LVM'
 rc-update add lvm # Start LVM during boot
 pvcreate /dev/mapper/lvmcrypt
 vgcreate vg0 /dev/mapper/lvmcrypt
-lvcreate -L 8G -n root vg0       # 8 GiB for /
+lvcreate -L 7G -n root vg0       # 7 GiB for /
 lvcreate -l 100%FREE -n home vg0 # rest  for /home
 mkfs.ext4 -L root /dev/vg0/root
 mkfs.ext4 -L home /dev/vg0/home
@@ -182,12 +183,11 @@ vgchange -ay
 mount -t ext4 /dev/vg0/root /mnt/
 mkdir -p /mnt/boot/efi; mount -t vfat "$DiskEFIPath" /mnt/boot/efi
 mkdir -p /mnt/home; mount -t ext4 /dev/vg0/home /mnt/home
-echo "erf?"; read erf
 
+echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
 echo '[*] Installing Alpine'
 # Install Alpine
 setup-disk -s 0 -m sys /mnt
-echo "erf?"; read erf
 
 echo "lvmcrypt UUID=$(blkid -s UUID -o value ${DiskLVMPath}) none luks" > /mnt/etc/crypttab
 echo 'GRUB_DISABLE_OS_PROBER=false
@@ -234,12 +234,6 @@ fi
 # MOTD
 echo "Welcome to Alpine!" > /mnt/etc/motd
 
-# Sudoers: add our user
-grep -q "'^${_USERNAME_}'" /mnt/etc/sudoers
-if [ $? -ne 0 ]; then
-    echo "${_USERNAME_} ALL=(ALL:ALL) NOPASSWD: ALL" >> /mnt/etc/sudoers
-fi
-
 # SSHd hardening
 # \ SSHd: Connection banner
 if [ ! -f '/mnt/etc/sshd_banner' ]; then
@@ -280,7 +274,6 @@ fi
 dd bs=512 count=4 if=/dev/urandom of=/mnt/crypto_keyfile.bin iflag=fullblock
 chmod 000 /mnt/crypto_keyfile.bin
 cryptsetup luksAddKey "$DiskLVMPath" /mnt/crypto_keyfile.bin
-echo "erf?"; read erf
 echo '#!/bin/bash
 _USERNAME_='"'${_USERNAME_}'" > /mnt/root/install.sh
 cat << '__EOF__' >> /mnt/root/install.sh
@@ -289,27 +282,27 @@ START_TIME=$(date +%s)
 
 # Install some basic cmds with documentation + misc:
 # - bind-tools: host + dig + ...
-# - Sniffing tools
+# - Sniffing tools (tcpdump, wireshark)
 # - S.M.A.R.T. tools like smartctl
 # - Nmap network port scanner
-# - Archives
-# - Web browser
+# - Archives (p7zip)
+# - Web browser (chromium)
 # - Music Player console Client
 # - Music Player Daemon
-# - Video players
-# - FTP client
-# - IRC client
-# - SCREEN TTY utility
-# - PDF reader
-# - Debugging
-# - Debugger + advanced memory debugger
+# - Video players (mplayer, vlc)
+# - FTP console client (lftp)
+# - IRC console client (irssi)
+# - TTY utility (screen)
+# - PDF reader (evince)
+# - Debugging (strace, ltrace)
+# - Debugger + advanced memory debugger (gdb, valgrind)
 # - Console tools for image manipulation
-# - Distributed version-control system
+# - Distributed version-control system (git)
 # - Encryption partition tools doc
 # - Docker
 # - Wireguard
 # XXX TODO - Yubikey + unrar(-doc)
-apk add procps procps-doc coreutils-doc gawk gawk-doc man-db man-pages lsof lsof-doc less less-doc grep grep-doc curl curl-doc alpine-sdk iptables-doc sudo-doc vim-doc bash-doc bash-completion util-linux-doc util-linux-bash-completion openrc-bash-completion bind-tools ldns-doc tcpdump tcpdump-doc wireshark smartmontools smartmontools-doc nmap nmap-doc p7zip p7zip-doc chromium mpc mpc-doc mpc-bash-completion mpd mpd-doc mplayer mplayer-doc vlc vlc-doc lftp lftp-doc irssi irssi-doc screen screen-doc evince evince-doc strace strace-doc ltrace ltrace-doc gdb gdb-doc valgrind valgrind-doc graphicsmagick graphicsmagick-doc git git-doc git-bash-completion cryptsetup-doc docker docker-doc docker-compose docker-bash-completion docker-compose-bash-completion wireguard-tools wireguard-tools-doc wireguard-tools-bash-completion
+apk add procps procps-doc coreutils-doc gawk gawk-doc man-db man-pages lsof lsof-doc less less-doc grep grep-doc curl curl-doc alpine-sdk iptables-doc vim-doc bash-doc bash-completion util-linux-doc util-linux-bash-completion openrc-bash-completion bind-tools ldns-doc tcpdump tcpdump-doc wireshark smartmontools smartmontools-doc nmap nmap-doc p7zip p7zip-doc chromium mpc mpc-doc mpc-bash-completion mpd mpd-doc mplayer mplayer-doc vlc vlc-doc lftp lftp-doc irssi irssi-doc screen screen-doc evince evince-doc strace strace-doc ltrace ltrace-doc gdb gdb-doc valgrind valgrind-doc graphicsmagick graphicsmagick-doc git git-doc git-bash-completion cryptsetup-doc docker docker-doc docker-compose docker-bash-completion docker-compose-bash-completion wireguard-tools wireguard-tools-doc wireguard-tools-bash-completion
 # Wireguard: ifupdown-ng-wireguard TODO https://wiki.alpinelinux.org/wiki/Configure_a_Wireguard_interface_(wg)
 
 # Create the user
@@ -329,10 +322,16 @@ if [ $? -ne 0 ]; then
     echo "$PASSWORD" > "/home/${_USERNAME_}/.pw"
     chown "${_USERNAME_}:users" "/home/${_USERNAME_}/.pw"
     chmod 400 "/home/${_USERNAME_}/.pw"
+    addgroup "$_USERNAME_" wireshark
 else
     echo 'WARNING: this user already exists!' >&2
 fi
-addgroup "$_USERNAME_" wireshark
+
+# Sudoers: add our user
+grep -q "'^permit no pass ${_USERNAME_}'" /etc/doas.d/doas.conf
+if [ $? -ne 0 ]; then
+    echo "permit no pass ${_USERNAME_}" >> /etc/doas.d/doas.conf
+fi
 
 dmesg | grep -q VBOX
 if [ $? -eq 0 ]; then
