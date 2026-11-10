@@ -19,48 +19,46 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Alpine Linux
-        uses: jirutka/setup-alpine@v1
-        with:
-          branch: edge
-          packages: >
-            abuild
-            alpine-conf
-            syslinux
-            xorriso
-            squashfs-tools
-            grub
-            mtools
-            git
 
-      - name: Generate signing keys
-        run: abuild-keygen -a -i
-
-      - name: Clone aports
+      - name: Build Alpine ISO
         run: |
-          git clone --depth=1 \
-            https://github.com/alpinelinux/aports.git
+          docker run --privileged --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            alpine:edge sh -euxc '
+              apk add --no-cache \
+                alpine-conf \
+                syslinux \
+                xorriso \
+                squashfs-tools \
+                grub \
+                mtools \
+                abuild \
+                git \
+                sudo
 
-      - name: Prepare build scripts
-        run: |
-          ln -s "$GITHUB_WORKSPACE/genapkovl-amodio.sh" \
-            aports/scripts/genapkovl-amodio.sh
+              abuild-keygen -a -i
 
-          ln -s "$GITHUB_WORKSPACE/mkimg.amodio.sh" \
-            aports/scripts/mkimg.amodio.sh
+              git clone --depth=1 \
+                https://github.com/alpinelinux/aports.git
 
-          ln -s "$GITHUB_WORKSPACE/autoinstall.sh" \
-            aports/scripts/autoinstall.sh
+              ln -s /workspace/genapkovl-amodio.sh \
+                aports/scripts/genapkovl-amodio.sh
 
-          ln -s "$GITHUB_WORKSPACE/local_files" \
-            aports/scripts/local_files
+              ln -s /workspace/mkimg.amodio.sh \
+                aports/scripts/mkimg.amodio.sh
 
-      - name: Build ISO
-        run: |
-          ./aports/scripts/mkimage.sh \
-            --tag edge \
-            --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
-            --profile amodio
+              ln -s /workspace/autoinstall.sh \
+                aports/scripts/autoinstall.sh
+
+              ln -s /workspace/local_files \
+                aports/scripts/local_files
+
+              ./aports/scripts/mkimage.sh \
+                --tag edge \
+                --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
+                --profile amodio
+            '
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
