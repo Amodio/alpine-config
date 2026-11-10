@@ -43,6 +43,9 @@ jobs:
               su - builder -c "abuild-keygen -a -n"
               cp -f /home/builder/.config/abuild/*.rsa.pub /etc/apk/keys/
 
+              # Permissions
+              chown builder:abuild -R /workspace/
+
               # Build as non-root
               su builder -c "
                 git clone --depth=1 https://github.com/alpinelinux/aports.git &&
