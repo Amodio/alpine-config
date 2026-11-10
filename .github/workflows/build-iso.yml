@@ -48,12 +48,13 @@ jobs:
 
               # Build as non-root
               su builder -c "
+                export PACKAGER_PRIVKEY=/home/builder/.config/abuild/*.rsa
+                cd /workspace &&
                 git clone --depth=1 https://github.com/alpinelinux/aports.git &&
                 ln -s /workspace/genapkovl-amodio.sh aports/scripts/ &&
                 ln -s /workspace/mkimg.amodio.sh aports/scripts/ &&
                 ln -s /workspace/autoinstall.sh aports/scripts/ &&
                 ln -s /workspace/local_files/ aports/scripts/ &&
-                cd /workspace &&
                 ./aports/scripts/mkimage.sh \
                   --tag edge \
                   --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
