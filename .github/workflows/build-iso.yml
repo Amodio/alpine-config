@@ -39,34 +39,17 @@ jobs:
               # Create build user
               adduser -D -G abuild builder
 
-              # Prepare scripts
-              git clone --depth=1 \
-                https://github.com/alpinelinux/aports.git
-
-              ln -s /workspace/genapkovl-amodio.sh \
-                aports/scripts/genapkovl-amodio.sh
-
-              ln -s /workspace/mkimg.amodio.sh \
-                aports/scripts/mkimg.amodio.sh
-
-              ln -s /workspace/autoinstall.sh \
-                aports/scripts/autoinstall.sh
-
-              ln -s /workspace/local_files \
-                aports/scripts/local_files
-
-              # Set permissions
-              chown -R builder:abuild /workspace/aports
-
               # Generate & install signing key
-              abuild-keygen -a -n
-              cp -f /root/.config/abuild/*.rsa.pub /etc/apk/keys/
-              mkdir -p /home/builder/.config/
-              cp -rf /root/.config/abuild/ /home/builder/.config/
-              chown -R builder:abuild /home/builder/.config/abuild/
+              su - builder -c 'abuild-keygen -a -n'
+              cp -f /home/builder/.config/abuild/*.rsa.pub /etc/apk/keys/
 
               # Build as non-root
               su builder -c "
+                git clone --depth=1 https://github.com/alpinelinux/aports.git &&
+                ln -s /workspace/genapkovl-amodio.sh aports/scripts/ &&
+                ln -s /workspace/mkimg.amodio.sh aports/scripts/ &&
+                ln -s /workspace/autoinstall.sh aports/scripts/ &&
+                ln -s /workspace/local_files/ aports/scripts/ &&
                 cd /workspace &&
                 ./aports/scripts/mkimage.sh \
                   --tag edge \
