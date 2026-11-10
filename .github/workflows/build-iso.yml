@@ -82,7 +82,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: release-${{ steps.release-number.outputs.number }}
-          name: Alpine Amodio Release \#${{ steps.release-number.outputs.number }}
+          name: "Alpine Amodio Release #${{ steps.release-number.outputs.number }}"
           body: |
             Automated Alpine Linux ISO build.
 
