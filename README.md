@@ -3,8 +3,8 @@ Custom Alpine Linux ISO with automated installation and configuration, built usi
 
 ## Features
   * Alpine Linux desktop taking less than 4GB
-  * labwc (successor of `openbox`) on Wayland
-  * /boot unencrypted + encrypted LFS (/ & /home) -> selected disk is wiped
+  * `labwc` (successor of `openbox`) on Wayland
+  * `/boot` unencrypted + encrypted LFS (`/` & `/home`) -> selected disk will be wiped
   * BIOS/UEFI compatible
 
 ## Installation
@@ -17,14 +17,14 @@ Custom Alpine Linux ISO with automated installation and configuration, built usi
 ```bash
 apk add abuild alpine-conf syslinux xorriso squashfs-tools grub mtools
 
-abuild-keygen -a
-
 git clone --depth=1 https://github.com/alpinelinux/aports.git
 
 ln -s "$(pwd)/genapkovl-amodio.sh" aports/scripts/
 ln -s "$(pwd)/mkimg.amodio.sh" aports/scripts/
 ln -s "$(pwd)/autoinstall.sh" aports/scripts/
 ln -s "$(pwd)/local_files/" aports/scripts/
+
+abuild-keygen -a -i
 ```
 
 ### Generate the ISO
