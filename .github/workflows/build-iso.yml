@@ -59,6 +59,12 @@ jobs:
               # Set permissions
               chown -R builder:abuild /workspace/aports
 
+              # Generate signing key
+              abuild-keygen -a -i -n
+              mkdir -p /home/builder/.config/
+              cp -rf /root/.config/abuild/ /home/builder/.config/
+              chown -R builder:abuild /home/builder/.config/abuild/
+
               # Build as non-root
               su builder -c "
                 abuild-keygen -a -n &&
