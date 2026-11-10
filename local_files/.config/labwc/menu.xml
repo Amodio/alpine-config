@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<openbox_menu>
+<!-- Note: for localization support of menu items "client-menu" has to be removed here -->
+<menu id="client-menu">
+  <item label="Minimize">
+    <action name="Iconify" />
+  </item>
+  <item label="Maximize [win+w]">
+    <action name="ToggleMaximize" />
+  </item>
+  <item label="Roll Up/Down">
+    <action name="ToggleShade" />
+  </item>
+  <item label="Always on Top">
+    <action name="ToggleAlwaysOnTop" />
+  </item>
+  <!--
+    Any menu with the id "workspaces" will be hidden
+    if there is only a single workspace available.
+  -->
+  <menu id="workspaces" label="Workspace">
+    <item label="Move Left">
+      <action name="SendToDesktop" to="left" />
+    </item>
+    <item label="Move Right">
+      <action name="SendToDesktop" to="right" />
+    </item>
+    <separator />
+    <item label="Always on Visible Workspace">
+      <action name="ToggleOmnipresent" />
+    </item>
+  </menu>
+  <!--
+    openbox default workspace selector
+    to use replace above workspace menu with the example below
+    the label is required, but you can change the text.
+
+    <menu id="client-send-to-menu" label="Send to..." />
+  -->
+  <item label="Close">
+    <action name="Close" />
+  </item>
+</menu>
+
+<menu id="root-menu">
+  <!-- Make client-list-combined-menu a submenu of root-menu
+       You must supply a label or it will not appear in root-menu -->
+  <!--
+  <menu id="client-list-combined-menu" label="Running..." />
+  -->
+  <item label="Terminal">
+    <action name="Execute" command="foot" />
+  </item>
+  <item label="Browser">
+    <action name="Execute" command="firefox" />
+  </item>
+  <item label="File manager">
+    <action name="Execute" command="thunar" />
+  </item>
+  <item label="Calculator">
+    <action name="Execute" command="rofi -modes calc -show calc -no-history -theme-str 'listview { lines: 0; fixed-height: false; }' -theme-str 'mainbox { children: [inputbar, message]; }'" />
+  </item>
+  <item label="Emoji">
+    <action name="Execute" command="rofi -modes emoji -show emoji" />
+  </item>
+  <item label="Yubikey-oath">
+    <action name="Execute" command="rofi -modi yubikey-oath -show yubikey-oath" />
+  </item>
+  <item label="coDe-oss">
+    <action name="Execute" command="code-oss" />
+  </item>
+  <item label="Virt-manager">
+    <action name="Execute" command="virt-manager" />
+  </item>
+  <item label="KeepassXC">
+    <action name="Execute" command="keepassxc" />
+  </item>
+  <item label="Thunderbird">
+    <action name="Execute" command="thunderbird" />
+  </item>
+  <item label="plattenalbum">
+    <action name="Execute" command="plattenalbum" />
+  </item>
+  <item label="zathura (PDF)">
+    <action name="Execute" command="zathura" />
+  </item>
+  <separator />
+  <item label="Run">
+    <action name="Execute" command="rofi -show drun" />
+  </item>
+  <item label="exec">
+    <action name="Execute" command="rofi -show run" />
+  </item>
+  <separator />
+  <item label="Pause song">
+    <action name="Execute" command="mpc toggle" />
+  </item>
+  <item label="Next song">
+    <action name="Execute" command="mpc next" />
+  </item>
+  <item label="cycLe wallpaper">
+    <action name="Execute" command="~/.config/wallpaper.sh" />
+  </item>
+  <separator />
+  <item label="reconfigure">
+    <action name="Reconfigure" />
+  </item>
+  <item label="exit labwc">
+    <action name="Exit" />
+  </item>
+  <separator />
+  <menu id="system-sub-menu" label="computer">
+    <item label="reboot">
+      <action name="Execute" command="sudo reboot" />
+    </item>
+    <item label="poweroff">
+      <action name="Execute" command="sudo poweroff" />
+    </item>
+  </menu>
+</menu>
+
+</openbox_menu>

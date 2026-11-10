@@ -1,0 +1,4 @@
+history=0
+default-timeout=15000
+anchor=bottom-right
+on-notify=exec mpv /usr/share/sounds/freedesktop/stereo/message.oga

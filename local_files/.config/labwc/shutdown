@@ -1,0 +1,5 @@
+# Clear the clipboard at each session ending
+cliphist wipe
+
+# Remove the temporary runtime directory
+#rm -rf "$XDG_RUNTIME_DIR"

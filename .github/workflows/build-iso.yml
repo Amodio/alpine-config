@@ -1,0 +1,78 @@
+
+name: Build Alpine ISO
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-iso:
+    name: Build and Release Alpine ISO
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Alpine Linux
+        uses: jirutka/setup-alpine@v1
+        with:
+          branch: edge
+          packages: >
+            abuild
+            alpine-conf
+            syslinux
+            xorriso
+            squashfs-tools
+            grub
+            mtools
+            git
+
+      - name: Generate signing keys
+        run: abuild-keygen -a -i
+
+      - name: Clone aports
+        run: |
+          git clone --depth=1 \
+            https://github.com/alpinelinux/aports.git
+
+      - name: Prepare build scripts
+        run: |
+          ln -s "$GITHUB_WORKSPACE/genapkovl-amodio.sh" \
+            aports/scripts/genapkovl-amodio.sh
+
+          ln -s "$GITHUB_WORKSPACE/mkimg.amodio.sh" \
+            aports/scripts/mkimg.amodio.sh
+
+          ln -s "$GITHUB_WORKSPACE/autoinstall.sh" \
+            aports/scripts/autoinstall.sh
+
+          ln -s "$GITHUB_WORKSPACE/local_files" \
+            aports/scripts/local_files
+
+      - name: Build ISO
+        run: |
+          ./aports/scripts/mkimage.sh \
+            --tag edge \
+            --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
+            --profile amodio
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Alpine Amodio Build #${{ github.run_number }}
+          body: |
+            Automated Alpine Linux ISO build.
+
+            Commit: ${{ github.sha }}
+            Build: ${{ github.run_number }}
+
+          files: alpine-amodio-edge-x86_64.iso
+          make_latest: true
+          fail_on_unmatched_files: true

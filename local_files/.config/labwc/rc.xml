@@ -1,0 +1,625 @@
+<?xml version="1.0"?>
+
+<labwc_config>
+  <core>
+    <decoration>server</decoration>
+    <gap>0</gap>
+    <adaptiveSync>no</adaptiveSync>
+    <allowTearing>no</allowTearing>
+    <autoEnableOutputs>yes</autoEnableOutputs>
+    <reuseOutputMode>no</reuseOutputMode>
+    <xwaylandPersistence>no</xwaylandPersistence>
+    <primarySelection>yes</primarySelection>
+  </core>
+
+  <placement>
+    <policy>automatic</policy>
+  </placement>
+
+  <!-- <font><theme> can be defined without an attribute to set all places -->
+  <theme>
+    <name>Numix</name>
+    <!-- <icon>breeze</icon> -->
+    <fallbackAppIcon>labwc</fallbackAppIcon>
+    <titlebar>
+      <layout>icon:iconify,max,close</layout>
+      <showTitle>yes</showTitle>
+    </titlebar>
+    <cornerRadius>8</cornerRadius>
+    <keepBorder>yes</keepBorder>
+    <maximizedDecoration>titlebar</maximizedDecoration>
+    <dropShadows>no</dropShadows>
+    <dropShadowsOnTiled>no</dropShadowsOnTiled>
+    <font place="ActiveWindow">
+      <name>sans</name>
+      <size>10</size>
+      <slant>normal</slant>
+      <weight>normal</weight>
+    </font>
+    <font place="InactiveWindow">
+      <name>sans</name>
+      <size>10</size>
+      <slant>normal</slant>
+      <weight>normal</weight>
+    </font>
+    <font place="MenuHeader">
+      <name>sans</name>
+      <size>10</size>
+      <slant>normal</slant>
+      <weight>normal</weight>
+    </font>
+    <font place="MenuItem">
+      <name>sans</name>
+      <size>10</size>
+      <slant>normal</slant>
+      <weight>normal</weight>
+    </font>
+    <font place="OnScreenDisplay">
+      <name>sans</name>
+      <size>10</size>
+      <slant>normal</slant>
+      <weight>normal</weight>
+    </font>
+  </theme>
+
+  <windowSwitcher preview="yes" outlines="yes" unshade="yes">
+    <osd show="yes" style="classic" output="all" thumbnailLabelFormat="%T" />
+    <fields>
+      <field content="icon" width="5%" />
+      <field content="desktop_entry_name" width="30%" />
+      <field content="title" width="65%" />
+      <!--
+        Just as for window-rules, you can use 'identifier' or
+        'trimmed_identifier' to show the app_id for native wayland clients or
+        WM_CLASS for XWayland clients.
+
+        <field content="trimmed_identifier" width="65%" />
+      -->
+    </fields>
+  </windowSwitcher>
+
+  <!--
+    Many other kinds of content are supported in the window switcher like below.
+    Some contents are fixed-length and others are variable-length.
+    See "man 5 labwc-config" for details.
+
+    <windowSwitcher preview="no" outlines="no">
+      <osd show="yes" />
+      <fields>
+        <field content="workspace" width="5%" />
+        <field content="state" width="3%" />
+        <field content="type_short" width="3%" />
+        <field content="output" width="9%" />
+        <field content="identifier" width="30%" />
+        <field content="title" width="50%" />
+      </fields>
+    </windowSwitcher>
+
+    custom format - (introduced in 0.7.2)
+    It allows one to replace all the above "fields" with one line, using a
+    printf style format. For field explanations, see "man 5 labwc-config".
+
+    The example below would print "foobar", then type of window (wayland, X),
+    then state of window (M/m/F), then output (shows if more than 1 active),
+    then workspace name, then identifier/app-id, then the window title.
+    It uses 100% of OSD window width.
+
+    <windowSwitcher preview="no" outlines="no">
+      <osd show="yes" />
+      <fields>
+        <field content="custom" format="foobar %b %3s %-10o %-20W %-10i %t" width="100%" />
+      </fields>
+    </windowSwitcher>
+  -->
+
+  <!-- edge strength is in pixels -->
+  <resistance>
+    <screenEdgeStrength>20</screenEdgeStrength>
+    <windowEdgeStrength>20</windowEdgeStrength>
+    <!-- resistance for maximized/tiled windows -->
+    <unSnapThreshold>20</unSnapThreshold>
+    <!-- resistance for vertically/horizontally maximized windows -->
+    <unMaximizeThreshold>150</unMaximizeThreshold>
+  </resistance>
+
+  <resize>
+    <!-- Show a simple resize and move indicator -->
+    <popupShow>Always</popupShow>
+    <!-- Let client redraw its contents while resizing -->
+    <drawContents>yes</drawContents>
+    <!-- Borders are effectively 8 pixels wide regardless of visual appearance -->
+    <minimumArea>8</minimumArea>
+
+    <!--
+      Set cornerRange to a positive value to increase the size of corner
+      regions for mouse actions and diagonal window resizing. When omitted,
+      the default size of the corner region is half of the titlebar height.
+
+      <cornerRange>8</cornerRange>
+    -->
+  </resize>
+
+  <focus>
+    <followMouse>yes</followMouse>
+    <followMouseRequiresMovement>yes</followMouseRequiresMovement>
+    <raiseOnFocus>no</raiseOnFocus>
+  </focus>
+
+  <snapping>
+    <!-- Set inner and outer range to 0 to disable window snapping completely -->
+    <range inner="10" outer="10" />
+    <cornerRange>50</cornerRange>
+    <overlay enabled="yes">
+      <delay inner="500" outer="500" />
+    </overlay>
+    <topMaximize>yes</topMaximize>
+    <notifyClient>always</notifyClient>
+  </snapping>
+
+  <desktops number="2" popupTime="500" />
+
+  <!--
+    <margin> can be used to reserve space where new/maximized/tiled
+    windows will not be placed. Clients using layer-shell protocol reserve
+    space automatically, so <margin> is only intended for other, specialist
+    cases.
+
+    If output is left empty, the margin will be applied to all outputs.
+
+    <margin top="" bottom="" left="" right="" output="" />
+  -->
+
+  <!-- Percent based regions based on output usable area, % char is required -->
+  <!--
+    <regions>
+      <region name="top-left"     x="0%"  y="0%"  height="50%"  width="50%"  />
+      <region name="top"          x="0%"  y="0%"  height="50%"  width="100%" />
+      <region name="top-right"    x="50%" y="0%"  height="50%"  width="50%"  />
+      <region name="left"         x="0%"  y="0%"  height="100%" width="50%"  />
+      <region name="center"       x="10%" y="10%" height="80%"  width="80%"  />
+      <region name="right"        x="50%" y="0%"  height="100%" width="50%"  />
+      <region name="bottom-left"  x="0%"  y="50%" height="50%"  width="50%"  />
+      <region name="bottom"       x="0%"  y="50%" height="50%"  width="100%" />
+      <region name="bottom-right" x="50%" y="50%" height="50%"  width="50%"  />
+    </regions>
+  -->
+
+  <!--
+    Keybind actions are specified in labwc-actions(5)
+    The following keybind modifiers are supported:
+      W - window/super/logo
+      A - alt
+      C - ctrl
+      S - shift
+
+    Use <keyboard><default /> to load all the default keybinds (those listed
+    below). If the default keybinds are largely what you want, a sensible
+    approach could be to start the <keyboard> section with a <default />
+    element, and then (re-)define any special binds you need such as launching
+    your favourite terminal or application launcher. See rc.xml for an example.
+  -->
+  <keyboard>
+    <numlock>on</numlock>
+    <layoutScope>global</layoutScope>
+    <repeatRate>25</repeatRate>
+    <repeatDelay>600</repeatDelay>
+    <keybind key="A-Tab">
+      <action name="NextWindow" />
+    </keybind>
+    <keybind key="A-S-Tab">
+      <action name="PreviousWindow" />
+    </keybind>
+    <keybind key="A-F1">
+      <action name="GoToDesktop">
+        <to>1</to>
+      </action>
+    </keybind>
+    <keybind key="A-F2">
+      <action name="GoToDesktop">
+        <to>2</to>
+      </action>
+    </keybind>
+    <keybind key="A-F4">
+      <action name="Close" />
+    </keybind>
+    <keybind key="W-t">
+      <action name="Execute" command="foot" />
+    </keybind>
+    <keybind key="W-b">
+      <action name="Execute" command="firefox" />
+    </keybind>
+    <keybind key="W-f">
+      <action name="Execute" command="thunar" />
+    </keybind>
+    <keybind key="W-c">
+      <action name="Execute" command="rofi -modes calc -show calc -no-history -theme-str 'listview { lines: 0; fixed-height: false; }' -theme-str 'mainbox { children: [inputbar, message]; }'" />
+    </keybind>
+    <keybind key="W-e">
+      <action name="Execute" command="rofi -modes emoji -show emoji" />
+    </keybind>
+    <keybind key="W-y">
+      <action name="Execute" command="rofi -modi yubikey-oath -show yubikey-oath" />
+    </keybind>
+    <keybind key="W-v">
+      <action name="Execute" command="virt-manager" />
+    </keybind>
+    <keybind key="W-d">
+      <action name="Execute" command="code-oss" />
+    </keybind>
+    <keybind key="W-r">
+      <action name="Execute" command="rofi -show drun" />
+    </keybind>
+    <keybind key="W-p">
+      <action name="Execute" command="mpc toggle" />
+    </keybind>
+    <keybind key="W-n">
+      <action name="Execute" command="mpc next" />
+    </keybind>
+    <keybind key="W-l">
+      <action name="Execute" command="~/.config/wallpaper.sh" />
+    </keybind>
+    <keybind key="W-w">
+      <action name="ToggleMaximize" />
+    </keybind>
+    <keybind key="Print">
+      <action name="Execute">
+        <command>sh -c 'mpv --really-quiet /usr/share/sounds/freedesktop/stereo/screen-capture.oga; grim - | swappy -f -'</command>
+      </action>
+    </keybind>
+    <keybind key="W-S-s">
+      <action name="Execute">
+        <command>sh -c 'grim -g "$(slurp)" - | tee >(wl-copy) | swappy -f -'</command>
+      </action>
+    </keybind>
+    <keybind key="W-Left">
+      <action name="SnapToEdge" direction="left" />
+    </keybind>
+    <keybind key="W-Right">
+      <action name="SnapToEdge" direction="right" />
+    </keybind>
+    <keybind key="W-Up">
+      <action name="SnapToEdge" direction="up" />
+    </keybind>
+    <keybind key="W-Down">
+      <action name="SnapToEdge" direction="down" />
+    </keybind>
+    <keybind key="A-Space">
+      <action name="ShowMenu" menu="client-menu" atCursor="no" />
+    </keybind>
+    <keybind key="XF86_AudioLowerVolume">
+      <action name="Execute" command="amixer sset Master 5%-" />
+    </keybind>
+    <keybind key="XF86_AudioRaiseVolume">
+      <action name="Execute" command="amixer sset Master 5%+" />
+    </keybind>
+    <keybind key="XF86_AudioMute">
+      <action name="Execute" command="amixer sset Master toggle" />
+    </keybind>
+  </keyboard>
+
+  <!--
+    Multiple <mousebind> can exist within one <context>
+    Multiple <actions> can exist within one <mousebind>
+
+    Use <mouse><default /> to load all the default mousebinds (those listed
+    below). If the default mousebinds are largely what you want, a sensible
+    approach could be to start the <mouse> section with a <default />
+    element, and then (re-)define any special binds you need such as launching
+    a custom menu when right-clicking on your desktop. See rc.xml for an
+    example.
+  -->
+  <mouse>
+
+    <!-- time is in ms -->
+    <doubleClickTime>500</doubleClickTime>
+
+    <context name="Frame">
+      <mousebind button="W-Left" action="Press">
+        <action name="Focus" />
+        <action name="Raise" />
+      </mousebind>
+      <mousebind button="W-Left" action="Drag">
+        <action name="Move" />
+      </mousebind>
+      <mousebind button="W-Right" action="Press">
+        <action name="Focus" />
+        <action name="Raise" />
+      </mousebind>
+      <mousebind button="W-Right" action="Drag">
+        <action name="Resize" />
+      </mousebind>
+    </context>
+
+    <context name="Top">
+      <mousebind button="Left" action="Drag">
+        <action name="Resize" />
+      </mousebind>
+    </context>
+    <context name="Left">
+      <mousebind button="Left" action="Drag">
+        <action name="Resize" />
+      </mousebind>
+    </context>
+    <context name="Right">
+      <mousebind button="Left" action="Drag">
+        <action name="Resize" />
+      </mousebind>
+    </context>
+    <context name="Bottom">
+      <mousebind button="Left" action="Drag">
+        <action name="Resize" />
+      </mousebind>
+    </context>
+    <context name="TRCorner">
+      <mousebind button="Left" action="Drag">
+        <action name="Resize" />
+      </mousebind>
+    </context>
+    <context name="BRCorner">
+      <mousebind button="Left" action="Drag">
+        <action name="Resize" />
+      </mousebind>
+    </context>
+    <context name="TLCorner">
+      <mousebind button="Left" action="Drag">
+        <action name="Resize" />
+      </mousebind>
+    </context>
+    <context name="BLCorner">
+      <mousebind button="Left" action="Drag">
+        <action name="Resize" />
+      </mousebind>
+    </context>
+
+    <context name="TitleBar">
+      <mousebind button="Left" action="Press">
+        <action name="Focus" />
+        <action name="Unshade" />
+        <action name="Raise" />
+      </mousebind>
+      <mousebind button="Right" action="Click">
+        <action name="Focus" />
+        <action name="Raise" />
+      </mousebind>
+      <mousebind direction="Up" action="Scroll">
+        <action name="Unfocus" />
+        <action name="Shade" />
+      </mousebind>
+      <mousebind direction="Down" action="Scroll">
+        <action name="Unshade" />
+        <action name="Focus" />
+      </mousebind>
+    </context>
+
+    <context name="Title">
+      <mousebind button="Left" action="Drag">
+        <action name="Move" />
+      </mousebind>
+      <mousebind button="Left" action="DoubleClick">
+        <action name="ToggleMaximize" />
+      </mousebind>
+      <mousebind button="Right" action="Click">
+        <action name="ShowMenu" menu="client-menu" />
+      </mousebind>
+    </context>
+
+    <context name="Maximize">
+      <mousebind button="Left" action="Click">
+        <action name="ToggleMaximize" />
+      </mousebind>
+      <mousebind button="Right" action="Click">
+        <action name="ToggleMaximize" direction="horizontal" />
+      </mousebind>
+      <mousebind button="Middle" action="Click">
+        <action name="ToggleMaximize" direction="vertical" />
+      </mousebind>
+    </context>
+
+    <context name="WindowMenu">
+      <mousebind button="Left" action="Click">
+        <action name="ShowMenu" menu="client-menu" atCursor="no" />
+      </mousebind>
+      <mousebind button="Right" action="Click">
+        <action name="ShowMenu" menu="client-menu" atCursor="no" />
+      </mousebind>
+    </context>
+
+    <context name="Icon">
+      <mousebind button="Left" action="Click">
+        <action name="ShowMenu" menu="client-menu" atCursor="no" />
+      </mousebind>
+      <mousebind button="Right" action="Click">
+        <action name="ShowMenu" menu="client-menu" atCursor="no" />
+      </mousebind>
+    </context>
+
+    <context name="Shade">
+      <mousebind button="Left" action="Click">
+        <action name="ToggleShade" />
+      </mousebind>
+    </context>
+
+    <context name="AllDesktops">
+      <mousebind button="Left" action="Click">
+        <action name="ToggleOmnipresent" />
+      </mousebind>
+    </context>
+
+    <!-- Magnification -->
+    <context name="All">
+      <mousebind direction="W-Up" action="Scroll">
+        <action name="ZoomIn"/>
+      </mousebind>
+      <mousebind direction="W-Down" action="Scroll">
+        <action name="ZoomOut"/>
+      </mousebind>
+    </context>
+
+    <context name="Iconify">
+      <mousebind button="Left" action="Click">
+        <action name="Iconify" />
+      </mousebind>
+    </context>
+
+    <context name="Close">
+      <mousebind button="Left" action="Click">
+        <action name="Close" />
+      </mousebind>
+    </context>
+
+    <context name="Client">
+      <mousebind button="Left" action="Press">
+        <action name="Focus" />
+        <action name="Raise" />
+      </mousebind>
+      <mousebind button="Middle" action="Press">
+        <action name="Focus" />
+        <action name="Raise" />
+      </mousebind>
+      <mousebind button="Right" action="Press">
+        <action name="Focus" />
+        <action name="Raise" />
+      </mousebind>
+    </context>
+
+    <context name="Root">
+      <mousebind button="Right" action="Press">
+        <action name="ShowMenu" menu="root-menu" />
+      </mousebind>
+      <mousebind button="Middle" action="Press">
+        <action name="ShowMenu" menu="client-list-combined-menu" />
+      </mousebind>
+      <mousebind direction="Up" action="Scroll">
+        <action name="GoToDesktop" to="left" wrap="yes" />
+      </mousebind>
+      <mousebind direction="Down" action="Scroll">
+        <action name="GoToDesktop" to="right" wrap="yes" />
+      </mousebind>
+    </context>
+
+  </mouse>
+
+  <!--
+    A touch configuration can be bound to a specific device. If device
+    name is left empty, the touch configuration applies to all touch
+    devices or functions as a fallback. Multiple touch configurations
+    can exist.
+    See the libinput device section for obtaining the device names.
+
+    Direct cursor movement to a specified output. If the compositor is
+    running in nested mode, this does not take effect.
+
+    If mouseEmulation is enabled, all touch up/down/motion events are
+    translated to mouse button and motion events.
+  -->
+  <touch deviceName="" mapToOutput="" mouseEmulation="no"/>
+
+  <!--
+    All tablet tools, except of type mouse and lens, use absolute
+    positioning by default. The *motion* attribute allows to set tools
+    to relative motion instead. When using relative motion,
+    *relativeMotionSensitivity* controls the speed of the cursor. Using
+    a value lower than 1.0 decreases the speed, using a value greater than
+    1.0 increases the speed of the cursor.
+  -->
+  <tabletTool motion="absolute" relativeMotionSensitivity="1.0" />
+
+  <!--
+    The *category* attribute is optional and can be set to touch, touchpad,
+    non-touch, default or the name of a device. You can obtain device names by
+    running *libinput list-devices* as root or member of the input group.
+
+    Tap is set to *yes* by default. All others are left blank in order to use
+    device defaults.
+
+    All values are [yes|no] except for:
+      - pointerSpeed [-1.0 to 1.0]
+      - accelProfile [flat|adaptive]
+      - tapButtonMap [lrm|lmr]
+      - clickMethod [none|buttonAreas|clickfinger]
+      - scrollMethod [twoFinger|edge|none]
+      - sendEventsMode [yes|no|disabledOnExternalMouse]
+      - calibrationMatrix [six float values split by space]
+      - scrollFactor [float]
+
+    The following <libinput>...</libinput> block may not be complete for
+    your requirements. Default values are device specific. Only set an option
+    if you require to override the default. Valid values must be inserted.
+
+  -->
+
+  <libinput>
+    <device category="default">
+      <!-- <naturalScroll>no</naturalScroll> -->
+      <!-- <leftHanded>no</leftHanded> -->
+      <!-- <pointerSpeed>0.0</pointerSpeed> -->
+      <!-- <accelProfile>adaptive</accelProfile> -->
+      <tap>yes</tap>
+      <!-- <tapButtonMap>lrm</tapButtonMap> -->
+      <!-- <tapAndDrag>yes</tapAndDrag> -->
+      <!-- <dragLock>yes</dragLock> -->
+      <!-- <threeFingerDrag>yes</threeFingerDrag> -->
+      <!-- <middleEmulation>no</middleEmulation> -->
+      <!-- <disableWhileTyping>yes</disableWhileTyping> -->
+      <!-- <clickMethod>buttonAreas</clickMethod> -->
+      <!-- <scrollMethod>twofinger</scrollMethod> -->
+      <!-- <sendEventsMode>yes</sendEventsMode> -->
+      <!-- <calibrationMatrix>1 0 0 0 1 0</calibrationMatrix> -->
+      <scrollFactor>1.0</scrollFactor>
+    </device>
+  </libinput>
+
+  <!--
+    # Window Rules
+    #   - Criteria can consist of 'identifier', 'title', 'sandboxEngine' or
+    #     'sandboxAppId'. AND logic is used when multiple options are specified.
+    #   - 'identifier' relates to app_id for native Wayland windows and
+    #     WM_CLASS for XWayland clients.
+    #   - Criteria can also contain `matchOnce="true"` meaning that the rule
+    #     must only apply to the first instance of the window with that
+    #     particular 'identifier' or 'title'.
+    #   - Matching is case-insensitive and is performed using shell wildcard
+    #     patterns (see glob(7)) so '\*' (not between brackets) matches any string
+    #     and '?' matches any single character.
+
+    <windowRules>
+      <windowRule identifier="*"><action name="Maximize"/></windowRule>
+      <windowRule identifier="foo" serverDecoration="yes"/>
+      <windowRule title="bar" serverDecoration="yes"/>
+      <windowRule identifier="baz" title="quax" serverDecoration="yes"/>
+    </windowRules>
+  -->
+    <windowRules>
+      <windowRule identifier="conky" matchOnce="true" fixedPosition="yes">
+        <skipTaskbar>yes</skipTaskbar>
+        <skipWindowSwitcher>yes</skipWindowSwitcher>
+        <action name="MoveTo" x="400" y="400" />
+        <action name="ToggleAlwaysOnBottom"/>
+      </windowRule>
+    </windowRules>
+<!-- <windowRule identifier="lxqt-panel" matchOnce="true" fixedPosition="yes"> -->
+
+  <menu>
+    <ignoreButtonReleasePeriod>250</ignoreButtonReleasePeriod>
+    <showIcons>yes</showIcons>
+  </menu>
+
+  <!--
+    Magnifier settings
+    'width' sets the width in pixels of the magnifier window.
+    'height' sets the height in pixels of the magnifier window.
+    'initScale' sets the initial magnification factor at boot.
+    'increment' sets the amount by which the magnification factor
+      changes when 'ZoomIn' or 'ZoomOut' are called.
+    'useFilter' sets whether to use a bilinear filter on the magnified
+      output or simply to take nearest pixel.
+  -->
+  <magnifier>
+    <width>400</width>
+    <height>400</height>
+    <initScale>2.0</initScale>
+    <increment>0.2</increment>
+    <useFilter>true</useFilter>
+  </magnifier>
+
+</labwc_config>

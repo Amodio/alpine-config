@@ -1,0 +1,23 @@
+# Application launcher
+LC_TIME=fr_FR.UTF-8 labar &
+
+# Clipboard, so that copy/paste works even if the source window was closed
+wl-paste --watch cliphist store &
+
+# Notifications
+mako &
+
+# Restore/set the wallpaper
+n=$(cat $HOME/.config/wallpapers/n 2>/dev/null)
+tmp="$HOME/.config/wallpapers/${n}.jpg"
+if [ -f "$HOME/.config/wallpapers/n" -a -f "$tmp" ]; then
+    swaybg -i "$tmp" 2>/dev/null &
+else
+    $HOME/.config/wallpaper.sh
+fi
+
+# Shutdown the screen on idle (after 1h, without locking the session)
+swayidle -w \
+    timeout 3600 'wlopm --off \*' \
+    resume 'wlopm --on \*' \
+    before-sleep 'chayang' >/dev/null 2>&1 &
