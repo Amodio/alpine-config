@@ -34,8 +34,7 @@ jobs:
                 grub \
                 mtools \
                 abuild \
-                git \
-                sudo
+                git
 
               # Create build user
               adduser -D -G abuild builder
@@ -67,7 +66,6 @@ jobs:
 
               # Build as non-root
               su builder -c "
-                abuild-keygen -a -n &&
                 cd /workspace &&
                 ./aports/scripts/mkimage.sh \
                   --tag edge \
