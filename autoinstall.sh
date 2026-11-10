@@ -221,7 +221,6 @@ info "-> $DiskPath: /boot @ $DiskBootPath & / @ $DiskLVMPath"
 
 # Username
 _USERNAME_='user'
-_USERNAME_='da'
 read -p "Username? [$_USERNAME_] " n
 if [ -n "$n" ]; then
     _USERNAME_="$n"
