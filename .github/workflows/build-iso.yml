@@ -23,6 +23,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Build Alpine ISO
         run: |
@@ -75,20 +76,54 @@ jobs:
           RELEASE_COUNT=$(gh api --paginate \
             "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
             --jq 'length' | awk '{sum += $1} END {print sum+0}')
+
           RELEASE_NUMBER=$((RELEASE_COUNT + 1))
+
           echo "number=$RELEASE_NUMBER" >> "$GITHUB_OUTPUT"
           echo "Next release number: $RELEASE_NUMBER"
+
+      - name: Generate Release Notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PREVIOUS_TAG=$(git tag --list 'release-*' --sort=-version:refname | sed -n '1p')
+
+          {
+            echo "Automated Alpine Linux ISO build."
+            echo ""
+            echo "Commit: ${GITHUB_SHA}"
+            echo "Release: ${{ steps.release-number.outputs.number }}"
+            echo ""
+
+            echo "## Commits"
+
+            if [ -n "$PREVIOUS_TAG" ]; then
+              echo ""
+              echo "Changes since **${PREVIOUS_TAG}**:"
+              echo ""
+
+              git log "${PREVIOUS_TAG}..${GITHUB_SHA}" \
+                --pretty=format:"- [%h](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/%H) %s"
+            else
+              echo ""
+              echo "Initial release: all repository commits."
+              echo ""
+
+              git log "${GITHUB_SHA}" \
+                --pretty=format:"- [%h](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/%H) %s"
+            fi
+
+            echo ""
+          } > release-notes.md
+
+          cat release-notes.md
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: release-${{ steps.release-number.outputs.number }}
           name: "Alpine Amodio Release #${{ steps.release-number.outputs.number }}"
-          body: |
-            Automated Alpine Linux ISO build.
-
-            Commit: ${{ github.sha }}
-            Release: ${{ steps.release-number.outputs.number }}
+          body_path: release-notes.md
           files: alpine-amodio-edge-x86_64.iso
           make_latest: true
           fail_on_unmatched_files: true
