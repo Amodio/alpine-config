@@ -93,14 +93,6 @@ jobs:
           PREVIOUS_TAG=$(git tag --list 'release-*' --sort=-version:refname | sed -n '1p')
 
           {
-            echo "Automated Alpine Linux ISO build."
-            echo ""
-            echo "Commit: ${GITHUB_SHA}"
-            echo "Release: ${{ steps.release-number.outputs.number }}"
-            echo ""
-
-            echo "## Commits"
-
             if [ -n "$PREVIOUS_TAG" ]; then
               echo ""
               echo "Changes since **${PREVIOUS_TAG}**:"
