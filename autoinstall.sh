@@ -75,9 +75,9 @@ _get_disk_choice() {
     done
 }
 
-# select_disk: Set `$DiskPath` which is the drive to write to,
+# select_disk: Set `$DiskPath` which is the drive to write to.
 #                  `DiskBootPath` /boot/ partition
-#                  `DiskLVMPath` LVM partition: / & /home.
+#                  `DiskRootPath` encrypted root partition
 select_disk() {
     local disks="$(ls /dev/nvme?n? /dev/sd? /dev/vd? 2>/dev/null)"
     if [ -z "$disks" ]; then
@@ -94,10 +94,10 @@ select_disk() {
     echo "$DiskPath" | grep -q nvme
     if [ $? -eq 0 ]; then
         DiskBootPath="${DiskPath}p1"
-        DiskLVMPath="${DiskPath}p2"
+        DiskRootPath="${DiskPath}p2"
     else
         DiskBootPath="${DiskPath}1"
-        DiskLVMPath="${DiskPath}2"
+        DiskRootPath="${DiskPath}2"
     fi
 }
 
@@ -133,7 +133,7 @@ setup_partitions() {
     read pause
     info 'Fast-wiping the disk'
     wipefs -qaf "$DiskPath"
-    info 'Creating two partitions: 256M for /boot/ and the rest for a LVM'
+    info 'Creating two partitions: 256M for /boot/ and the rest for an encrypted root'
     if [ $_UEFI_ -eq 1 ]; then
         parted -s "$DiskPath" mklabel gpt \
             mkpart primary 1MiB 257MiB set 1 esp on \
@@ -146,38 +146,29 @@ setup_partitions() {
     sync
     partprobe "$DiskPath" # force the kernel to re-scan the disk for partitions
 	mdev -s # Force device node creation
-    if [ ! -e "$DiskBootPath" -o ! -e "$DiskLVMPath" ]; then
+    if [ ! -e "$DiskBootPath" -o ! -e "$DiskRootPath" ]; then
         error 'There was an error creating the devices...'
     fi
     info 'Formatting the partitions'
     mkfs.fat -F32 -n BOOT "$DiskBootPath" > /dev/null
-    #haveged -n 0 | dd of="$DiskLVMPath" # Optional: Fill LUKS Partition with random data
-    #mkdir -m0700 /run/cryptsetup
-    info 'Configuring encryption for the LVM partition'
-    cryptsetup -q -c aes-xts-plain64 -s 512 --hash sha512 --pbkdf pbkdf2 --iter-time 1000 --use-random luksFormat "$DiskLVMPath"
-    #cryptsetup -q -c serpent-xts-plain64 -s 512 --hash whirlpool --iter-time 5000 --use-random luksFormat "$DiskLVMPath"
-	# XXX: /boot is not encrypted, vulnerable to a maid attack but we r lazy!
-    #info 'Configuring encryption for the /boot partition'
+    #haveged -n 0 | dd of="$DiskRootPath" # Optional: Fill LUKS Partition with random data
     # GRUB's support for LUKS2 is limited, see: https://savannah.gnu.org/bugs/?55093
-    #cryptsetup -q -v --type luks1 luksFormat "$DiskBootPath"
-    #cryptsetup luksFormat --pbkdf pbkdf2 "$DiskBootPath"
-	# Enable TRIM support (for SSDs) for the LUKS2 LVM partition
-	# https://wiki.archlinux.org/title/Dm-crypt/Specialties#Discard/TRIM_support_for_solid_state_drives_(SSD)
-	# https://wiki.archlinux.org/title/Dm-crypt/Specialties#Disable_workqueue_for_increased_solid_state_drive_(SSD)_performance
-    cryptsetup luksOpen --allow-discards --perf-no_read_workqueue --perf-no_write_workqueue --persistent "$DiskLVMPath" lvmcrypt
-    rc-update add lvm boot # Start LVM during boot
-    pvcreate /dev/mapper/lvmcrypt
-    vgcreate vg0 /dev/mapper/lvmcrypt
-    lvcreate -L 7G -n root vg0       # 7 GB for /
-    lvcreate -l 100%FREE -n home vg0 # the rest for /home
-    mkfs.ext4 -L root /dev/vg0/root
-    mkfs.ext4 -L home /dev/vg0/home
+    info 'Configuring LUKS2 encryption for the root partition'
+    cryptsetup --batch-mode luksFormat --type luks2 \
+        --cipher aes-xts-plain64 --key-size 512 \
+        --pbkdf argon2id --iter-time 2000 "$DiskRootPath"
+    # XXX: /boot is not encrypted, vulnerable to a maid attack but we r lazy!
+    # Disable Discard/TRIM and dm-crypt workqueues.
+    # https://wiki.archlinux.org/title/Dm-crypt/Specialties#Discard/TRIM_support_for_solid_state_drives_(SSD)
+    # https://wiki.archlinux.org/title/Dm-crypt/Specialties#Disable_workqueue_for_increased_solid_state_drive_(SSD)_performance
+    cryptsetup open --perf-no_read_workqueue \
+        --perf-no_write_workqueue --persistent "$DiskRootPath" cryptroot
+    mkfs.ext4 -L alpine-root /dev/mapper/cryptroot
 
-    # Mount the system from disk onto /mnt
-    vgchange -ay
-    mount -t ext4 /dev/vg0/root /mnt/
-    mkdir /mnt/boot/; mount -t vfat "$DiskBootPath" /mnt/boot/
-    mkdir /mnt/home/; mount -t ext4 /dev/vg0/home /mnt/home/
+    # Mount the single encrypted filesystem as / + /boot
+    mount -t ext4 /dev/mapper/cryptroot /mnt/
+    mkdir -p /mnt/boot/
+    mount -t vfat "$DiskBootPath" /mnt/boot/
 }
 
 #create_user: Create the user.
@@ -217,7 +208,7 @@ fi
 # Disk partitions
 info 'Determining the disk to use...'
 select_disk
-info "-> $DiskPath: /boot @ $DiskBootPath & / @ $DiskLVMPath"
+info "-> $DiskPath: /boot @ $DiskBootPath & encrypted / @ $DiskRootPath"
 
 # Username
 _USERNAME_='user'
@@ -297,7 +288,7 @@ else
 fi
 
 apk update && apk add --no-cache coreutils util-linux \
-                parted dosfstools e2fsprogs lvm2 cryptsetup
+                parted dosfstools e2fsprogs cryptsetup
 if [ $? -ne 0 ]; then
     error 'Cannot install packages, please check your connectivity'
 fi
@@ -333,9 +324,9 @@ apk add --no-cache docs man-db man-pages                \
     qemu-modules virt-manager virtiofsd                 \
     unzip 7zip                                          \
     keepassxc keepassxc-browser keepassxc-firefox-manifest\
-    firefox foot git plattenalbum pwgen thunar          \
+    firefox foot git plattenalbum pwgen rclone thunar   \
     thunderbird yt-dlp zathura zathura-pdf-mupdf
-# lang xwayland qemu-system-i386 rclone ?
+# lang xwayland qemu-system-i386 ?
 if [ $? -ne 0 ]; then
     error 'Cannot install packages, please check your connectivity'
 fi
@@ -421,11 +412,12 @@ bind_to_address "127.0.0.1"' >> /etc/mpd.conf
 info 'Installing Alpine'
 setup-disk -s 0 -m sys /mnt/ # No swap
 
-# Configure vim
-mv -f /etc/autoinstall.d/vimrc /mnt/usr/share/vim/vimrc
 # setup-disk does not copy the home directory
 cp -r "/home/$_USERNAME_/" "/mnt/home/$_USERNAME_/"
 chown -R "$_USERNAME_:$_USERNAME_" "/mnt/home/$_USERNAME_/"
+
+# Configure vim
+mv -f /etc/autoinstall.d/vimrc /mnt/usr/share/vim/vimrc
 
 # Force to use vim & bash (instead of vi & sh)
 ln -sf /bin/bash /mnt/bin/sh        # Set the default shell as bash
@@ -434,30 +426,29 @@ ln -sf /usr/bin/vim /mnt/usr/bin/vi # Force using vim
 # Bootloader (grub)
 # setup-disk erases /etc/default/grub:
 # https://github.com/alpinelinux/alpine-conf/blob/54a9488f999af2cc24535aa5aab99499f0e0b253/setup-disk.in#L358
-# Configure Grub (& mkinitfs) for our layout: /boot + encrypted LVM{/ & /home}
-echo 'GRUB_DISTRIBUTOR="Alpine"
+# Configure GRUB for our layout: /boot + an encrypted rootfs.
+LUKS_UUID=$(cryptsetup luksUUID "$DiskRootPath")
+cat > /mnt/etc/default/grub <<EOF
+GRUB_DISTRIBUTOR="Alpine"
 GRUB_TIMEOUT=0
 GRUB_DISABLE_SUBMENU=false
 GRUB_DISABLE_RECOVERY=false
 #GRUB_ENABLE_CRYPTODISK=y
 GRUB_DISABLE_OS_PROBER=false
-GRUB_CMDLINE_LINUX_DEFAULT="modules=sd-mod,usb-storage,ext4,nvme cryptroot=UUID='"$(blkid -s UUID -o value "$DiskLVMPath")"' cryptdm=lvmcrypt rootfstype=ext4"
-#GRUB_PRELOAD_MODULES="luks cryptodisk part_gpt lvm"' > /mnt/etc/default/grub
-# vgs -o vg_uuid --no-headings | tr -d ' '
-# lvdisplay --select lv_name=root -C -o lv_uuid --no-headings | tr -d ' '
+GRUB_CMDLINE_LINUX_DEFAULT="modules=sd-mod,usb-storage,ext4,nvme cryptroot=UUID=$LUKS_UUID cryptdm=root rootfstype=ext4"
+EOF
 apk del syslinux # Ensure using Grub instead of syslinux
 echo "#!/bin/sh
 su $_USERNAME_ -c \"python -m pip install tinytuya --break-system-packages\"" > /mnt/chroot.sh
 if [ $_UEFI_ -eq 1 ]; then
     echo 'apk add --no-cache grub-efi efibootmgr os-prober' >> /mnt/chroot.sh
-    echo 'update-grub' >> /mnt/chroot.sh
     echo 'grub-install --efi-directory=/boot/' >> /mnt/chroot.sh
 else
     echo 'apk add --no-cache grub-bios os-prober' >> /mnt/chroot.sh
     echo "grub-install $DiskPath" >> /mnt/chroot.sh
 fi
 chmod +x /mnt/chroot.sh
-info 'Chrooting into the disk to finish installation (grub)...'
+info 'Chrooting into the disk to finish the installation (grub)...'
 mount -t proc /proc/ /mnt/proc/
 mount --rbind /dev/ /mnt/dev/
 mount --make-rslave /mnt/dev/
