@@ -49,7 +49,7 @@ jobs:
               cp -f /home/builder/.config/abuild/*.rsa.pub /etc/apk/keys/
 
               # Permissions
-              chown builder:abuild /workspace/*
+              chown builder:abuild /workspace/
 
               # Build as non-root
               su builder -c "
