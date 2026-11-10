@@ -28,6 +28,8 @@ jobs:
       - name: Build Alpine ISO
         run: |
           docker run --privileged --rm \
+            -e HOST_UID="$(id -u)" \
+            -e HOST_GID="$(id -g)" \
             -v "$GITHUB_WORKSPACE:/workspace" \
             -w /workspace \
             alpine:edge sh -euxc '
@@ -66,6 +68,8 @@ jobs:
                   --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
                   --profile amodio
               "
+              # Restore ownership of all workspace files to the GitHub runner
+              chown -R "${HOST_UID}:${HOST_GID}" /workspace
             '
 
       - name: Calculate Release Number
