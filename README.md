@@ -1,5 +1,5 @@
 # alpine-config
-Custom Alpine Linux ISO with automated installation and configuration, built using Alpine's `mkimage.sh` infrastructure.
+Custom Alpine Linux ISO with automated installation and configuration, built using Alpine's `mkimage.sh`.
 
 ## Features
   * Alpine Linux desktop taking less than 4GB
@@ -8,7 +8,7 @@ Custom Alpine Linux ISO with automated installation and configuration, built usi
   * BIOS/UEFI compatible
 
 ## Installation
-  1) Download [alpine-amodio-edge-x86_64.iso](https://github.com/Amodio/alpine-config/releases/latest/download/amodio.iso).
+  1) Download [alpine-amodio-edge-x86_64.iso](https://github.com/Amodio/alpine-config/releases/latest/download/alpine-amodio-edge-x86_64.iso).
   2) Boot on it in a VM or with an USB disk (you may use [Ventoy](https://www.ventoy.net/en/download.html)).
   3) Answer a few questions for configuration, wait 2 minutes for the installation and press enter to reboot, enjoy!
 
