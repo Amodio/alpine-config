@@ -1,4 +1,3 @@
-
 name: Build Alpine ISO
 
 on:
@@ -21,7 +20,9 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Build Alpine ISO
         run: |
@@ -48,7 +49,7 @@ jobs:
               cp -f /home/builder/.config/abuild/*.rsa.pub /etc/apk/keys/
 
               # Permissions
-              chown builder:abuild -R /workspace/
+              chown builder:abuild /workspace/*
 
               # Build as non-root
               su builder -c "
@@ -79,7 +80,7 @@ jobs:
           echo "Next release number: $RELEASE_NUMBER"
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: release-${{ steps.release-number.outputs.number }}
           name: "Alpine Amodio Release #${{ steps.release-number.outputs.number }}"
