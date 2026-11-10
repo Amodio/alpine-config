@@ -61,7 +61,7 @@ jobs:
 
               # Build as non-root
               su builder -c "
-                abuild-keygen -a -i -n &&
+                abuild-keygen -a -n &&
                 cd /workspace &&
                 ./aports/scripts/mkimage.sh \
                   --tag edge \
