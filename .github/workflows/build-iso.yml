@@ -74,24 +74,20 @@ jobs:
           RELEASE_COUNT=$(gh api --paginate \
             "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
             --jq 'length' | awk '{sum += $1} END {print sum+0}')
-
           RELEASE_NUMBER=$((RELEASE_COUNT + 1))
-
           echo "number=$RELEASE_NUMBER" >> "$GITHUB_OUTPUT"
-
           echo "Next release number: $RELEASE_NUMBER"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: release-${{ steps.release-number.outputs.number }}
-          name: Alpine Amodio Release #${{ steps.release-number.outputs.number }}
+          name: Alpine Amodio Release \#${{ steps.release-number.outputs.number }}
           body: |
             Automated Alpine Linux ISO build.
 
             Commit: ${{ github.sha }}
             Release: ${{ steps.release-number.outputs.number }}
-
           files: alpine-amodio-edge-x86_64.iso
           make_latest: true
           fail_on_unmatched_files: true
