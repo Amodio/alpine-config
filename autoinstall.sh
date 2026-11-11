@@ -6,6 +6,13 @@
 
 START_TIME=$(date +%s) # Time the execution of this script
 
+# Boot mode (needed early: the partition layout depends on it)
+if [ -d /sys/firmware/efi ]; then
+    _UEFI_=1
+else
+    _UEFI_=0
+fi
+
 info() {
     echo -e "\e[32m[\e[1;32m\e[1m+\e[32m]\e[0m $@"
 }
@@ -55,7 +62,7 @@ _prettify_disk_list() {
         local disk_name=$(echo "$line" | sed 's#^/dev/##')
         local size=$(cat "/sys/block/$disk_name/size" 2>/dev/null)
         local size=$(expr $size \* 512 / 1024 / 1024 / 1024 2>/dev/null)
-        local name=$(cat "/sys/block/$disk_name/model/size" 2>/dev/null)
+        local name=$(cat "/sys/block/$disk_name/device/model" 2>/dev/null)
         echo -e "$line\t$size GB\t\t$name"
     done
 }
@@ -76,8 +83,8 @@ _get_disk_choice() {
 }
 
 # select_disk: Set `$DiskPath` which is the drive to write to.
-#                  `DiskBootPath` /boot/ partition
-#                  `DiskRootPath` encrypted root partition
+#                  `DiskBootPath` ESP partition (UEFI only, empty on BIOS)
+#                  `DiskRootPath` encrypted partition holding / and /boot
 select_disk() {
     local disks="$(ls /dev/nvme?n? /dev/sd? /dev/vd? 2>/dev/null)"
     if [ -z "$disks" ]; then
@@ -91,13 +98,17 @@ select_disk() {
         _get_disk_choice "$disks" "$n_disks"
         DiskPath="$(echo "$disks" | sed -n ${?}p | awk '{print $1}')"
     fi
-    echo "$DiskPath" | grep -q nvme
-    if [ $? -eq 0 ]; then
-        DiskBootPath="${DiskPath}p1"
-        DiskRootPath="${DiskPath}p2"
+    local P
+    case "$DiskPath" in
+        *nvme*) P="${DiskPath}p" ;;
+        *)      P="$DiskPath" ;;
+    esac
+    if [ $_UEFI_ -eq 1 ]; then
+        DiskBootPath="${P}1"   # ESP (unencrypted, only holds the GRUB EFI binary)
+        DiskRootPath="${P}2"   # LUKS: / and /boot
     else
-        DiskBootPath="${DiskPath}1"
-        DiskRootPath="${DiskPath}2"
+        DiskBootPath=''        # No boot partition on BIOS
+        DiskRootPath="${P}1"   # LUKS: / and /boot
     fi
 }
 
@@ -124,6 +135,27 @@ setup_iptables() {
     rc-service ip6tables save
 }
 
+# ask_passphrase: Ask the LUKS passphrase (twice) and store it in `$LuksPass`.
+#                 It is asked only once for the whole install: it is piped to
+#                 every cryptsetup call below.
+ask_passphrase() {
+    local p1 p2
+    warn 'GRUB reads the passphrase with a US (QWERTY) keymap at boot!'
+    warn 'Use characters that are on the same keys on your layout and on US.'
+    while true; do
+        read -s -p 'LUKS passphrase: ' p1; echo
+        read -s -p 'LUKS passphrase (again): ' p2; echo
+        if [ -z "$p1" ]; then
+            warn 'Empty passphrase'
+        elif [ "$p1" != "$p2" ]; then
+            warn 'Passphrases do not match'
+        else
+            LuksPass="$p1"
+            return 0
+        fi
+    done
+}
+
 # setup_partitions: Write partitions to disk, format and mount volumes.
 setup_partitions() {
     local pause
@@ -131,44 +163,81 @@ setup_partitions() {
     lsblk -o NAME,SIZE,TYPE,MOUNTPOINTS "$DiskPath"
     warn "/!\\ DISK $DiskPath WILL BE FULLY ERASED. PRESS ENTER TO CONTINUE. /!\\"
     read pause
+    ask_passphrase
     info 'Fast-wiping the disk'
     wipefs -qaf "$DiskPath"
-    info 'Creating two partitions: 256M for /boot/ and the rest for an encrypted root'
     if [ $_UEFI_ -eq 1 ]; then
+        info 'Creating two partitions: 256M ESP and the rest for an encrypted rootfs'
         parted -s "$DiskPath" mklabel gpt \
-            mkpart primary 1MiB 257MiB set 1 esp on \
+            mkpart ESP fat32 1MiB 257MiB set 1 esp on \
             mkpart primary 257MiB 100%
     else
-        parted -s "$DiskPath" mklabel msdos \
-            mkpart primary 1MiB 257MiB set 1 boot on \
-            mkpart primary 257MiB 100%
+        info 'Creating one partition: an encrypted rootfs'
+        parted -s "$DiskPath" mklabel msdos mkpart primary 1MiB 100%
     fi
     sync
     partprobe "$DiskPath" # force the kernel to re-scan the disk for partitions
-	mdev -s # Force device node creation
-    if [ ! -e "$DiskBootPath" -o ! -e "$DiskRootPath" ]; then
+    mdev -s # Force device node creation
+    if [ ! -e "$DiskRootPath" ]; then
+        error 'There was an error creating the devices...'
+    fi
+    if [ $_UEFI_ -eq 1 -a ! -e "$DiskBootPath" ]; then
         error 'There was an error creating the devices...'
     fi
     info 'Formatting the partitions'
-    mkfs.fat -F32 -n BOOT "$DiskBootPath" > /dev/null
+    if [ $_UEFI_ -eq 1 ]; then
+        mkfs.fat -F32 -n EFI "$DiskBootPath" > /dev/null
+    fi
     #haveged -n 0 | dd of="$DiskRootPath" # Optional: Fill LUKS Partition with random data
-    # GRUB's support for LUKS2 is limited, see: https://savannah.gnu.org/bugs/?55093
-    info 'Configuring LUKS2 encryption for the root partition'
-    cryptsetup --batch-mode luksFormat --type luks2 \
+    # GRUB cannot unlock argon2id (PBKDF2 only), and /boot is now encrypted,
+    # so the LUKS2 header must use PBKDF2. GRUB's unlock is much slower than
+    # cryptsetup's, hence the modest iter-time. Use a STRONG passphrase.
+    # https://savannah.gnu.org/bugs/?55093
+    info 'Configuring LUKS2 encryption for / and /boot'
+    printf '%s' "$LuksPass" | cryptsetup --batch-mode luksFormat --type luks2 \
         --cipher aes-xts-plain64 --key-size 512 \
-        --pbkdf argon2id --iter-time 2000 "$DiskRootPath"
-    # XXX: /boot is not encrypted, vulnerable to a maid attack but we r lazy!
+        --pbkdf pbkdf2 --iter-time 1000 --key-file - "$DiskRootPath"
     # Disable Discard/TRIM and dm-crypt workqueues.
     # https://wiki.archlinux.org/title/Dm-crypt/Specialties#Discard/TRIM_support_for_solid_state_drives_(SSD)
     # https://wiki.archlinux.org/title/Dm-crypt/Specialties#Disable_workqueue_for_increased_solid_state_drive_(SSD)_performance
-    cryptsetup open --perf-no_read_workqueue \
-        --perf-no_write_workqueue --persistent "$DiskRootPath" cryptroot
+    printf '%s' "$LuksPass" | cryptsetup open --perf-no_read_workqueue \
+        --perf-no_write_workqueue --persistent --key-file - \
+        "$DiskRootPath" cryptroot
     mkfs.ext4 -L alpine-root /dev/mapper/cryptroot
 
-    # Mount the single encrypted filesystem as / + /boot
+    # Mount the single encrypted filesystem as / (+ /boot inside it)
     mount -t ext4 /dev/mapper/cryptroot /mnt/
     mkdir -p /mnt/boot/
-    mount -t vfat "$DiskBootPath" /mnt/boot/
+    if [ $_UEFI_ -eq 1 ]; then
+        mkdir -p /mnt/boot/efi/
+        mount -t vfat "$DiskBootPath" /mnt/boot/efi/
+    fi
+}
+
+# setup_keyfile: Create a random keyfile, enrol it in a second LUKS keyslot and
+#                embed it in the initramfs (/crypto_keyfile.bin, see the
+#                `cryptkey` mkinitfs feature below). GRUB asks the passphrase
+#                once; the initramfs then unlocks the root with the keyfile
+#                instead of asking again. This is safe because the initramfs
+#                lives in the encrypted /boot (and is chmod 600).
+setup_keyfile() {
+    info 'Creating the initramfs keyfile'
+    dd if=/dev/urandom of=/mnt/crypto_keyfile.bin bs=512 count=4 2>/dev/null
+    chmod 000 /mnt/crypto_keyfile.bin
+    # The keyfile is random (high entropy): a fast PBKDF2 slot is fine, and
+    # PBKDF2 keeps the header GRUB-friendly.
+    printf '%s' "$LuksPass" | cryptsetup luksAddKey --key-file - \
+        --pbkdf pbkdf2 --pbkdf-force-iterations 1000 \
+        "$DiskRootPath" /mnt/crypto_keyfile.bin
+    if [ $? -ne 0 ]; then
+        error 'Cannot add the keyfile to the LUKS header'
+    fi
+    unset LuksPass
+    # Make sure mkinitfs knows which file to embed
+    mkdir -p /mnt/etc/mkinitfs/features.d/
+    if [ ! -e /mnt/etc/mkinitfs/features.d/cryptkey.files ]; then
+        echo '/crypto_keyfile.bin' > /mnt/etc/mkinitfs/features.d/cryptkey.files
+    fi
 }
 
 #create_user: Create the user.
@@ -208,7 +277,7 @@ fi
 # Disk partitions
 info 'Determining the disk to use...'
 select_disk
-info "-> $DiskPath: /boot @ $DiskBootPath & encrypted / @ $DiskRootPath"
+info "-> $DiskPath: encrypted / and /boot @ $DiskRootPath (ESP: ${DiskBootPath:-none})"
 
 # Username
 _USERNAME_='user'
@@ -280,12 +349,6 @@ if [ $? -ne 0 ]; then
 fi
 # Add the testing repository
 sed -n '/\/edge\/main$/s/main/testing/p' /etc/apk/repositories >> /etc/apk/repositories
-
-if [ -d /sys/firmware/efi ]; then
-    _UEFI_=1
-else
-    _UEFI_=0
-fi
 
 apk update && apk add --no-cache coreutils util-linux \
                 parted dosfstools e2fsprogs cryptsetup
@@ -416,6 +479,9 @@ setup-disk -s 0 -m sys /mnt/ # No swap
 cp -r "/home/$_USERNAME_/" "/mnt/home/$_USERNAME_/"
 chown -R "$_USERNAME_:$_USERNAME_" "/mnt/home/$_USERNAME_/"
 
+# Keyfile embedded in the initramfs (single passphrase prompt at boot)
+setup_keyfile
+
 # Configure vim
 mv -f /etc/autoinstall.d/vimrc /mnt/usr/share/vim/vimrc
 
@@ -426,29 +492,46 @@ ln -sf /usr/bin/vim /mnt/usr/bin/vi # Force using vim
 # Bootloader (grub)
 # setup-disk erases /etc/default/grub:
 # https://github.com/alpinelinux/alpine-conf/blob/54a9488f999af2cc24535aa5aab99499f0e0b253/setup-disk.in#L358
-# Configure GRUB for our layout: /boot + an encrypted rootfs.
+# Configure GRUB for our layout: everything (/boot included) is in the LUKS
+# volume, so GRUB must be able to unlock it (GRUB_ENABLE_CRYPTODISK).
+# The root is then unlocked a second time by the initramfs, using the
+# embedded keyfile (cryptkey=...), so the passphrase is asked only once.
 LUKS_UUID=$(cryptsetup luksUUID "$DiskRootPath")
 cat > /mnt/etc/default/grub <<EOF
 GRUB_DISTRIBUTOR="Alpine"
 GRUB_TIMEOUT=0
 GRUB_DISABLE_SUBMENU=false
 GRUB_DISABLE_RECOVERY=false
-#GRUB_ENABLE_CRYPTODISK=y
+GRUB_ENABLE_CRYPTODISK=y
 GRUB_DISABLE_OS_PROBER=false
-GRUB_CMDLINE_LINUX_DEFAULT="modules=sd-mod,usb-storage,ext4,nvme cryptroot=UUID=$LUKS_UUID cryptdm=root rootfstype=ext4"
+GRUB_CMDLINE_LINUX_DEFAULT="modules=sd-mod,usb-storage,ext4,nvme cryptroot=UUID=$LUKS_UUID cryptdm=root cryptkey=/crypto_keyfile.bin rootfstype=ext4"
 EOF
 apk del syslinux # Ensure using Grub instead of syslinux
-echo "#!/bin/sh
-su $_USERNAME_ -c \"python -m pip install tinytuya --break-system-packages\"" > /mnt/chroot.sh
+cat > /mnt/chroot.sh <<EOF
+#!/bin/sh
+su $_USERNAME_ -c "python -m pip install tinytuya --break-system-packages"
+set -e
+# Rebuild the initramfs with the keyfile embedded, then lock it down
+echo 'features="ata base ide scsi usb virtio ext4 nvme cryptsetup cryptkey"' > /etc/mkinitfs/mkinitfs.conf
+for k in /lib/modules/*; do mkinitfs "\${k##*/}"; done
+chmod 600 /boot/initramfs-*
+EOF
 if [ $_UEFI_ -eq 1 ]; then
-    echo 'apk add --no-cache grub-efi efibootmgr os-prober' >> /mnt/chroot.sh
-    echo 'grub-install --efi-directory=/boot/' >> /mnt/chroot.sh
+    cat >> /mnt/chroot.sh <<'EOF'
+apk add --no-cache grub-efi efibootmgr os-prober
+grub-install --efi-directory=/boot/efi --bootloader-id=alpine
+EOF
 else
-    echo 'apk add --no-cache grub-bios os-prober' >> /mnt/chroot.sh
-    echo "grub-install $DiskPath" >> /mnt/chroot.sh
+    cat >> /mnt/chroot.sh <<EOF
+apk add --no-cache grub-bios os-prober
+grub-install $DiskPath
+EOF
 fi
+# grub-install does not write grub.cfg; generate it AFTER the grub defaults
+# above so GRUB_ENABLE_CRYPTODISK is taken into account.
+echo 'grub-mkconfig -o /boot/grub/grub.cfg' >> /mnt/chroot.sh
 chmod +x /mnt/chroot.sh
-info 'Chrooting into the disk to finish the installation (grub)...'
+info 'Chrooting into the disk to finish the installation (initramfs + grub)...'
 mount -t proc /proc/ /mnt/proc/
 mount --rbind /dev/ /mnt/dev/
 mount --make-rslave /mnt/dev/
