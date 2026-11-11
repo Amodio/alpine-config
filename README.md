@@ -4,7 +4,7 @@ Custom Alpine Linux ISO with automated installation and configuration, built usi
 ## Features
   * Alpine Linux desktop taking less than 4GB
   * `labwc` (successor of `openbox`) on Wayland
-  * `/boot` unencrypted + encrypted LVM (`/` & `/home`) -> selected disk will be wiped
+  * `/boot` unencrypted + encrypted rootfs -> selected disk will be wiped
   * BIOS/UEFI compatible
 
 ## Installation
