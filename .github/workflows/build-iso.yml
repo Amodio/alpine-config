@@ -68,8 +68,8 @@ jobs:
                   --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
                   --profile amodio
               "
-              # Restore ownership of all workspace files to the GitHub runner
-              chown -R "${HOST_UID}:${HOST_GID}" /workspace
+              # Restore ownership of the workspace to the GitHub runner
+              chown "${HOST_UID}:${HOST_GID}" /workspace/
             '
 
       - name: Calculate Release Number
