@@ -139,9 +139,25 @@ setup_iptables() {
 #                 It is asked only once for the whole install: it is piped to
 #                 every cryptsetup call below.
 ask_passphrase() {
-    local p1 p2
-    warn 'GRUB reads the passphrase with a US (QWERTY) keymap at boot!'
-    warn 'Use characters that are on the same keys on your layout and on US.'
+    local p1 p2 saved_keymaps saved_keymap
+
+    # Preserve the keymap selected earlier, including its boot configuration.
+    if [ ! -f /etc/conf.d/loadkmap ]; then
+        error 'Cannot find the current keymap configuration'
+    fi
+    saved_keymaps=$(cat /etc/conf.d/loadkmap)
+    . /etc/conf.d/loadkmap
+    saved_keymap="${KEYMAP:-}"
+    if [ -z "$saved_keymap" ] || [ ! -f "$saved_keymap" ]; then
+        error 'Cannot determine the current keymap file'
+    fi
+
+    info 'GRUB reads the passphrase with a US (QWERTY) keymap at boot!'
+    info 'Temporarily switching to the US keymap for the LUKS passphrase'
+    if ! setup-keymap us us; then
+        error 'Cannot switch to the US keymap'
+    fi
+
     while true; do
         read -s -p 'LUKS passphrase: ' p1; echo
         read -s -p 'LUKS passphrase (again): ' p2; echo
@@ -151,9 +167,16 @@ ask_passphrase() {
             warn 'Passphrases do not match'
         else
             LuksPass="$p1"
-            return 0
+            break
         fi
     done
+
+    # Restore the saved configuration and apply it to the live console.
+    printf '%s\n' "$saved_keymaps" > /etc/conf.d/loadkmap
+    if ! zcat "$saved_keymap" | loadkmap; then
+        error 'Cannot restore the original keymap'
+    fi
+    info 'Restored the original keymap'
 }
 
 # setup_partitions: Write partitions to disk, format and mount volumes.
