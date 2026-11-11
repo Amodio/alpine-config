@@ -212,7 +212,7 @@ setup_partitions() {
         mkfs.fat -F32 -n EFI "$DiskBootPath" > /dev/null
     fi
     #haveged -n 0 | dd of="$DiskRootPath" # Optional: Fill LUKS Partition with random data
-    info 'Configuring LUKS2 encryption for / and /boot'
+    info 'Configuring LUKS2 encryption'
     printf '%s' "$LuksPass" | cryptsetup --batch-mode luksFormat --type luks2 \
         --cipher aes-xts-plain64 --key-size 512 \
         --pbkdf argon2id --iter-time 1000 --key-file - "$DiskRootPath"
@@ -531,7 +531,7 @@ for k in /lib/modules/*; do mkinitfs "\${k##*/}"; done
 chmod 600 /boot/initramfs-*
 EOF
 if [ $_UEFI_ -eq 1 ]; then
-    cat >> /mnt/chroot.sh <<'EOF'
+    cat >> /mnt/chroot.sh <<EOF
 apk add --no-cache grub-efi efibootmgr os-prober
 grub-install --efi-directory=/boot/efi --bootloader-id=alpine
 EOF

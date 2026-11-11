@@ -13,7 +13,7 @@ Custom Alpine Linux ISO with automated installation and configuration, built usi
   3) Answer a few questions for configuration, wait 2 minutes for the installation and press enter to reboot, enjoy!
 
 ## Note
-It is recommended to use UEFI as 32-bit BIOS GRUB implementation is doing the PBKDF2 computation less efficiently than the x86_64 EFI implementation (takes double the time to boot!).
+Prefer UEFI as 32-bit BIOS GRUB implementation is doing the PBKDF2 computation less efficiently than the x86_64 EFI implementation (takes double the time to boot!).
 
 ## For developpers
 ### Prerequisites
