@@ -93,13 +93,11 @@ jobs:
             if [ -n "$PREVIOUS_TAG" ]; then
               echo "Changes since **${PREVIOUS_TAG}**:"
               echo ""
-
               git log "${PREVIOUS_TAG}..${GITHUB_SHA}" \
                 --pretty=format:"- [%h](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/%H) %s"
             else
               echo "Initial release:"
               echo ""
-
               git log "${GITHUB_SHA}" \
                 --pretty=format:"- [%h](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/%H) %s"
             fi
