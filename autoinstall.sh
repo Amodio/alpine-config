@@ -238,8 +238,8 @@ if [ "$n" = 'y' -o "$n" = 'yes' ]; then
 fi
 
 # 5. DNS
-info 'Setting DNS (Quad9 & Google)'
-setup-dns '9.9.9.9' '1.1.1.1' '2620:fe::fe' '2606:4700:4700::1111' 
+info 'Setting DNS (Cloudflare & DNS4EU)'
+setup-dns '1.1.1.1' '86.54.11.100' '2606:4700:4700::1111' '2a13:1001::86:54:11:100'
 
 # 7. Timezone
 _TIMEZONE_='Europe/Paris'
