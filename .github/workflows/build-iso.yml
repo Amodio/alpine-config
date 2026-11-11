@@ -80,9 +80,7 @@ jobs:
           RELEASE_COUNT=$(gh api --paginate \
             "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
             --jq 'length' | awk '{sum += $1} END {print sum+0}')
-
           RELEASE_NUMBER=$((RELEASE_COUNT + 1))
-
           echo "number=$RELEASE_NUMBER" >> "$GITHUB_OUTPUT"
           echo "Next release number: $RELEASE_NUMBER"
 
@@ -91,28 +89,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PREVIOUS_TAG=$(git tag --list 'release-*' --sort=-version:refname | sed -n '1p')
-
           {
             if [ -n "$PREVIOUS_TAG" ]; then
-              echo ""
               echo "Changes since **${PREVIOUS_TAG}**:"
               echo ""
 
               git log "${PREVIOUS_TAG}..${GITHUB_SHA}" \
                 --pretty=format:"- [%h](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/%H) %s"
             else
-              echo ""
-              echo "Initial release: all repository commits."
+              echo "Initial release:"
               echo ""
 
               git log "${GITHUB_SHA}" \
                 --pretty=format:"- [%h](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/%H) %s"
             fi
-
-            echo ""
           } > release-notes.md
-
-          cat release-notes.md
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v3
