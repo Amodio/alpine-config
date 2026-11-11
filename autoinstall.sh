@@ -212,14 +212,10 @@ setup_partitions() {
         mkfs.fat -F32 -n EFI "$DiskBootPath" > /dev/null
     fi
     #haveged -n 0 | dd of="$DiskRootPath" # Optional: Fill LUKS Partition with random data
-    # GRUB cannot unlock argon2id (PBKDF2 only), and /boot is now encrypted,
-    # so the LUKS2 header must use PBKDF2. GRUB's unlock is much slower than
-    # cryptsetup's, hence the modest iter-time. Use a STRONG passphrase.
-    # https://savannah.gnu.org/bugs/?55093
     info 'Configuring LUKS2 encryption for / and /boot'
     printf '%s' "$LuksPass" | cryptsetup --batch-mode luksFormat --type luks2 \
         --cipher aes-xts-plain64 --key-size 512 \
-        --pbkdf pbkdf2 --iter-time 1000 --key-file - "$DiskRootPath"
+        --pbkdf argon2id --iter-time 1000 --key-file - "$DiskRootPath"
     # Disable Discard/TRIM and dm-crypt workqueues.
     # https://wiki.archlinux.org/title/Dm-crypt/Specialties#Discard/TRIM_support_for_solid_state_drives_(SSD)
     # https://wiki.archlinux.org/title/Dm-crypt/Specialties#Disable_workqueue_for_increased_solid_state_drive_(SSD)_performance
@@ -256,11 +252,6 @@ setup_keyfile() {
         error 'Cannot add the keyfile to the LUKS header'
     fi
     unset LuksPass
-    # Make sure mkinitfs knows which file to embed
-    mkdir -p /mnt/etc/mkinitfs/features.d/
-    if [ ! -e /mnt/etc/mkinitfs/features.d/cryptkey.files ]; then
-        echo '/crypto_keyfile.bin' > /mnt/etc/mkinitfs/features.d/cryptkey.files
-    fi
 }
 
 #create_user: Create the user.
