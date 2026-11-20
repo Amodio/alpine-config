@@ -207,8 +207,8 @@ setup_partitions() {
     if [ $_UEFI_ -eq 1 -a ! -e "$DiskBootPath" ]; then
         error 'There was an error creating the devices...'
     fi
-    info 'Formatting the partitions'
     if [ $_UEFI_ -eq 1 ]; then
+        info 'Formatting /boot (EFI)...'
         mkfs.fat -F32 -n EFI "$DiskBootPath" > /dev/null
     fi
     #haveged -n 0 | dd of="$DiskRootPath" # Optional: Fill LUKS Partition with random data
@@ -523,27 +523,26 @@ EOF
 apk del syslinux # Ensure using Grub instead of syslinux
 cat > /mnt/chroot.sh <<EOF
 #!/bin/sh
-su $_USERNAME_ -c "python -m pip install tinytuya --break-system-packages"
+su $_USERNAME_ -c "python -m pip install tinytuya --break-system-packages --no-warn-script-location"
 set -e
 # Rebuild the initramfs with the keyfile embedded, then lock it down
-echo 'features="ata base ide scsi usb virtio ext4 nvme cryptsetup cryptkey"' > /etc/mkinitfs/mkinitfs.conf
-for k in /lib/modules/*; do mkinitfs "\${k##*/}"; done
-chmod 600 /boot/initramfs-*
+echo 'features="ata base cdrom ext4 kms mmc nvme raid scsi usb virtio cryptsetup cryptkey"' > /etc/mkinitfs/mkinitfs.conf
+mkinitfs
 EOF
 if [ $_UEFI_ -eq 1 ]; then
     cat >> /mnt/chroot.sh <<EOF
 apk add --no-cache grub-efi efibootmgr os-prober
 grub-install --efi-directory=/boot/efi --bootloader-id=alpine
+# grub-install does not write grub.cfg; generate it AFTER the grub defaults
+# above so GRUB_ENABLE_CRYPTODISK is taken into account.
+grub-mkconfig -o /boot/grub/grub.cfg
 EOF
 else
     cat >> /mnt/chroot.sh <<EOF
 apk add --no-cache grub-bios os-prober
-grub-install $DiskPath
+grub-install "$DiskPath"
 EOF
 fi
-# grub-install does not write grub.cfg; generate it AFTER the grub defaults
-# above so GRUB_ENABLE_CRYPTODISK is taken into account.
-echo 'grub-mkconfig -o /boot/grub/grub.cfg' >> /mnt/chroot.sh
 chmod +x /mnt/chroot.sh
 info 'Chrooting into the disk to finish the installation (initramfs + grub)...'
 mount -t proc /proc/ /mnt/proc/
